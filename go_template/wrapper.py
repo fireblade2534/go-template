@@ -5,23 +5,22 @@ root_dir = os.path.dirname(__file__)
 shared_lib = os.path.join(root_dir, 'bind', 'template.so')
 lib = cdll.LoadLibrary(shared_lib)
 
-class GoString(Structure):
-    _fields_ = [("p", c_char_p), ("n", c_longlong)]
+def render_template_string(template_content, values_content):
+    # Set argument and return types
+    lib.RenderTemplateString.argtypes = [c_char_p, c_char_p]
+    lib.RenderTemplateString.restype = c_char_p
+    
+    # Convert Python strings to bytes
+    template_bytes = template_content.encode('utf-8')
+    values_bytes = values_content.encode('utf-8')
+    
+    # Call the Go function and get the result
+    result = lib.RenderTemplateString(template_bytes, values_bytes)
+    
+    # Convert the result back to a Python string
+    return result.decode('utf-8')
 
-def get_go_string(val):
-    return GoString(val.encode('utf-8'), len(val))
+Template = """{{.Count}} items are made of {{.Material}}"""
+Values = """Count: 12\nMaterial: Wool"""
 
-def get_go_path(file):
-    if not os.path.isabs(file) and file:
-        file = os.path.join(os.getcwd(),file)
-    return get_go_string(file)
-
-def render_template(template, value_file, output):
-    template = get_go_path(template)
-    value_file = get_go_path(value_file)
-    output = get_go_path(output)
-
-    lib.RenderTemplate.argtypes = [GoString, GoString, GoString]
-    lib.RenderTemplate(template, value_file, output)
-
-# render_template('tests/sample.tmpl', 'tests/values.yml','')
+print(render_template_string(Template,Values))

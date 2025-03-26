@@ -2,64 +2,38 @@ package main
 
 import "C"
 import (
-	"fmt"
-	"os"
-	"io"
-	"path"
-	"gopkg.in/yaml.v2"
-	"text/template"
-	"io/ioutil"
+        "bytes"
+        "gopkg.in/yaml.v2"
+        "text/template"
 )
 
-type store struct{
-	FileName string ;
-	Values map[string]interface{};
+//export RenderTemplateString
+func RenderTemplateString(templateStr, valueStr *C.char) *C.char {
+        // Convert C strings to Go strings
+        templateContent := C.GoString(templateStr)
+        valueContent := C.GoString(valueStr)
+        
+        // Parse YAML values
+        values := make(map[string]interface{})
+        err := yaml.Unmarshal([]byte(valueContent), &values)
+        if err != nil {
+                return C.CString("")
+        }
+        
+        // Parse and execute the template
+        tmpl, err := template.New("template").Parse(templateContent)
+        if err != nil {
+                return C.CString("")
+        }
+        
+        var buf bytes.Buffer
+        err = tmpl.Execute(&buf, values)
+        if err != nil {
+                return C.CString("")
+        }
+        
+        // Return the result as a C string
+        return C.CString(buf.String())
 }
 
-func tpl(fileName string, vals interface{}, output string) error {
-	name := path.Base(fileName)
-	tmpl, err := template.New(name).ParseFiles(fileName)
-	if err != nil {
-		return err
-	}
-
-	var file io.Writer
-	if output != "" {
-		f, _ :=os.Create(output)
-		defer f.Close()
-		file = f
-	} else {
-		file = os.Stdout
-	}
-
-	err = tmpl.Execute(file, vals)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *store)getValues() {
-    yamlFile, err := ioutil.ReadFile(s.FileName)
-    if err != nil {
-        fmt.Printf("yamlFile.Get err   #%v ", err)
-	}
-    err = yaml.Unmarshal(yamlFile, &s.Values)
-    if err != nil {
-		panic(err)
-    }
-}
-
-//export RenderTemplate
-func RenderTemplate(template, fileName, output string){
-	s := store{FileName: fileName}
-	s.getValues()
-	err := tpl(template, s.Values, output)
-	if err != nil {
-		panic(err)
-    }
-}
-
-func main(){
-	// RenderTemplate("sample.tmpl", "values.yml", "")
-}
+func main() {}
